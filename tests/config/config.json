@@ -1,0 +1,13 @@
+{
+  "environments": {
+    "local": {
+      "base_url": "http://localhost:3010",
+      "admin_restaurant_email": "admin@feastrunner.com",
+      "admin_restaurant_password": "Restaurant123!",
+      "admin_customer_email": "customer@feastrunner.com",
+      "admin_customer_password": "Customer123!",
+      "admin_courier_email": "courier@feastrunner.com",
+      "admin_courier_password": "Courier123!"
+    }
+  }
+}

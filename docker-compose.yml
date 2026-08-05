@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: feastadmin
+      POSTGRES_PASSWORD: feastpass123
+      POSTGRES_DB: feastrunner
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feastadmin -d feastrunner"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+    ports:
+      - "3010:3000"
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: feastadmin
+      DATABASE_PASSWORD: feastpass123
+      DATABASE_NAME: feastrunner
+      JWT_SECRET: feastrunner-secret-key-2025
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
