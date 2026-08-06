@@ -5,8 +5,8 @@ Used when an entity need an order for exist first.
 from tests.conftest import order_service
 from tests.models.order_model import Order
 from tests.models.order_item_model import OrderItem
-from tests.factories.addresses_factory import AddressFactory
-from tests.factories.menu_items_factory import MenuItemsFactory
+from tests.factories.address_factory import AddressFactory
+from tests.factories.menu_item_factory import MenuItemsFactory
 from tests.services.menu_service import MenuService
 from tests.services.menu_items_service import MenuItemsService
 from tests.services.order_service import OrderService
@@ -46,13 +46,14 @@ class OrderFactory:
         Returns:
             dict: The created order response from the API.
         """
-
+        menu_id = None
         customer_id = None
         restaurant_id = None
 
         if menu_item_id is None:
             menu_item = self._menu_items_factory.create()
             menu_item_id = menu_item["id"]
+            menu_id = menu_item["menu_id"]
             restaurant_id = menu_item["restaurant_id"]
 
         item = OrderItem(menu_item_id=menu_item_id,quantity=2)
@@ -73,6 +74,8 @@ class OrderFactory:
 
         assert response.status_code == StatusCodes.CREATED
         data = response.json()
+        data["menu_id"] = menu_id
+        data["menu_item_id"] = menu_item_id
 
         return data
 

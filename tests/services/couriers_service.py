@@ -3,16 +3,21 @@
 import requests
 from tests.base.base_service import BaseService
 from tests.utils.endpoints import CourierEndpoints
+from tests.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class CouriersService(BaseService):
     """HTTP Service for couriers CRUD and authentication."""
 
     def list(self, is_available: bool = None) -> requests.Response:
         """GET /couriers - list all active couriers, optionally filtered by available status"""
-        if is_available is None:
-            return self.get(CourierEndpoints.BASE)
+        params = {}
 
-        return  self.get(CourierEndpoints.BASE, params={"is_available": True})
+        if is_available is not None:
+            params["is_available"] = str(is_available).lower()
+
+        return self.get(CourierEndpoints.BASE, params=params)
 
     def create(self, payload: dict) -> requests.Response:
         """POST /couriers - register a new courier."""

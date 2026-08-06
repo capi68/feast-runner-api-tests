@@ -109,7 +109,6 @@ class TestCustomerCreation(BaseAssertions):
     Current API only validates that the field is a string.
     No validation exists to ensure a usable phone number.
     """)
-
     @pytest.mark.parametrize("field", ["first_name", "last_name", "email", "phone"])
     def test_create_customer_invalid_fields_type(self, field):
         """POST /customers with invalid data type return 400
