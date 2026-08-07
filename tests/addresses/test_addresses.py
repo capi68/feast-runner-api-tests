@@ -348,6 +348,7 @@ class TestAddressesUpdate(BaseAssertions):
 class TestAddressDelete(BaseAssertions):
     """Test for DELETE /addressess/<id>."""
 
+    @pytest.mark.prueba
     @allure.story("Delete address successfully")
     def test_delete_address_success(self, customer_service, address_service):
         """DELETE /addresses/<id> - should return 200 and delete the address permanently."""

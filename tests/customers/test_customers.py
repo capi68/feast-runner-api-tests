@@ -5,6 +5,7 @@ import pytest
 
 from tests.base.base_assertions import BaseAssertions
 from tests.conftest import customer_service
+from tests.factories.order_factory import OrderFactory
 from tests.services.customer_service import CustomerService
 from tests.payloads.customers_payloads import customer_create_payload,customer_login_payload,customer_update_payload
 from tests.schemas.customers_schema import CUSTOMER_RESPONSE_SCHEMA,CUSTOMER_LIST_SCHEMA,CUSTOMER_LOGIN_SCHEMA
@@ -349,33 +350,32 @@ class TestCustomerDelete(BaseAssertions):
         self.using(delete_response).assert_response_has_key("message")
 
 
-    # @allure.story("Delete customer with active orders.")
-    # def test_delete_customer_with_active_order(
-    #         self,
-    #         menu_service,
-    #         menu_items_service,
-    #         restaurant_service,
-    #         address_service,
-    #         customer_service,
-    #         order_service
-    # ):
-    #     """DELETE /customers/<id> with active orders should return 409 and message."""
-    #
-    #     created = create_order_confirmed(
-    #         menu_service,
-    #         menu_items_service,
-    #         restaurant_service,
-    #         address_service,
-    #         customer_service,
-    #         order_service
-    #     )
-    #     order = created["order"]
-    #     customer_id = order["customer_id"]
-    #
-    #     response = customer_service.delete_customer(customer_id)
-    #
-    #     self.using(response).assert_status_code_is(StatusCodes.CONFLICT)
-    #     self.using(response).assert_response_has_key("message")
+    @allure.story("Delete customer with active orders.")
+    def test_delete_customer_with_active_order(
+            self,
+            menu_service,
+            menu_items_service,
+            restaurant_service,
+            address_service,
+            customer_service,
+            order_service
+    ):
+        """DELETE /customers/<id> with active orders should return 409 and message."""
+
+        #Create order via factory
+        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
+        order = factory.create()
+        order_id = order["id"]
+        customer_id = order["customer_id"]
+
+        response = customer_service.delete_customer(customer_id)
+
+        self.using(response).assert_status_code_is(StatusCodes.CONFLICT)
+        self.using(response).assert_response_has_key("message")
+
+        #CLEANUP
+        factory.cleanup(order_id)
+        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
 @pytest.mark.customers

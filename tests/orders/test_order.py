@@ -1333,10 +1333,11 @@ class TestDeleteOrder(BaseAssertions):
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
+        #CLEANUP
         order_service.update(order_id, {"status": "delivered"})
         factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
-    @pytest.mark.prueba
+
     @allure.story("DELETE nonexistent order")
     def test_delete_nonexist_order( self, order_service):
         """DELETE /orders/999999 - should return 404 and message.
