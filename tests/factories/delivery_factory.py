@@ -15,13 +15,12 @@ from tests.services.order_service import OrderService
 from tests.services.restaurant_service import RestaurantService
 from tests.services.address_service import AddressService
 from tests.services.customer_service import CustomerService
-from tests.payloads.order_payloads import order_create_payload
 from tests.utils.constants import StatusCodes
 from tests.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-class deliveryFactory:
+class DeliveryFactory:
     """Creates delivery preconditions via the API."""
 
     def __init__(self,
@@ -64,12 +63,13 @@ class deliveryFactory:
         #Create order via Factory
         if order_id is None:
             order = self._order_factory.create()
-        else:
-            response = self._order_service.get_by_id(order_id)
-            order = response.json()
             self._order_service.update(order["id"], {"status": "confirmed"})
             self._order_service.update(order["id"], {"status": "preparing"})
             self._order_service.update(order["id"], {"status": "ready"})
+        else:
+            response = self._order_service.get_by_id(order_id)
+            order = response.json()
+
 
         order_id = order["id"]
         customer_id = order["customer_id"]
@@ -108,9 +108,10 @@ class deliveryFactory:
             )
     def cleanup_all(self,order_id: int,courier_id: int, customer_id: int, address_id: int, menu_item_id: int, menu_id: int, restaurant_id: int) -> None:
         """Clean up all resources created by this factory."""
-        self._order_service.update(order_id, {"status": "picked_up"})
         self._order_service.update(order_id, {"status": "delivered"})
+
         self._order_factory.cleanup_all(customer_id, address_id,menu_item_id,menu_id,restaurant_id)
+        self._courier_factory.cleanup(courier_id)
 
 
 

@@ -5,8 +5,7 @@ import pytest
 
 from tests.base.base_assertions import BaseAssertions
 from tests.services.menu_service import MenuService
-from tests.payloads.restaurant_payloads import restaurant_create_payload
-from tests.payloads.menu_payloads import menu_create_payload, menu_update_payload
+from tests.payloads.menu_payloads import menu_create_payload
 from tests.schemas.menu_schemas import MENU_RESPONSE_SCHEMA, MENU_LIST_SCHEMA
 from tests.factories.restaurant_factory import RestaurantFactory
 from tests.utils.constants import MenuStatuses, StatusCodes

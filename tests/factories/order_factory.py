@@ -2,7 +2,7 @@
 Creates an order via the API and returns the response data.
 Used when an entity need an order for exist first.
 """
-from tests.conftest import order_service
+
 from tests.models.order_model import Order
 from tests.models.order_item_model import OrderItem
 from tests.factories.address_factory import AddressFactory
@@ -37,7 +37,7 @@ class OrderFactory:
         self._menu_items_factory = MenuItemsFactory(menu_items_service, menu_service, restaurant_service)
 
     def create(self, address_id: int = None, menu_item_id: int = None, **overrides) -> dict:
-        """Create a menu item with its dependencies and return the response JSON.
+        """Create a order with its dependencies and return the response JSON.
 
         Args:
             address_id: ID if existing address. If None, creates one.
