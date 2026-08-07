@@ -7,7 +7,6 @@ from tests.base.base_assertions import BaseAssertions
 from tests.factories.delivery_factory import DeliveryFactory
 from tests.models.deliveries_models import Delivery
 from tests.payloads.deliveries_payloads import delivery_create_payload, delivery_update_status_payload
-from tests.payloads.order_payloads import order_update_payload
 from tests.schemas.deliveries_schemas import DELIVERIES_RESPONSE_SCHEMA, DELIVERIES_LIST_SCHEMA
 from tests.factories.courier_factory import CourierFactory
 from tests.factories.order_factory import OrderFactory
@@ -819,7 +818,7 @@ class TestUpdateDelivery(BaseAssertions):
                             delivery["menu_id"],
                             delivery["restaurant_id"],)
 
-    @pytest.mark.prueba
+
     @allure.story("Update delivery  status starting in failed")
     @pytest.mark.parametrize("new_status", ["assigned", "picked_up", "in_transit", "delivered"])
     def test_update_incorrect_status_starting_in_failed(

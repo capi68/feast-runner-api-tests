@@ -81,7 +81,6 @@ class OrderFactory:
 
     def cleanup(self, order_id: int) -> None:
         """DELETE order created by this factory."""
-
         response = self._order_service.delete_order(order_id)
 
         if response.status_code == StatusCodes.OK:
