@@ -25,4 +25,4 @@ echo ""
 echo "🧪 Running tests..."
 echo ""
 
-cd tests && python3 -m pytest "$@"
+cd tests && python -m pytest "$@"

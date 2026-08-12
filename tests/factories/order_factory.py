@@ -2,7 +2,7 @@
 Creates an order via the API and returns the response data.
 Used when an entity need an order for exist first.
 """
-
+from tests.conftest import order_service
 from tests.models.order_model import Order
 from tests.models.order_item_model import OrderItem
 from tests.factories.address_factory import AddressFactory
@@ -13,7 +13,7 @@ from tests.services.order_service import OrderService
 from tests.services.restaurant_service import RestaurantService
 from tests.services.address_service import AddressService
 from tests.services.customer_service import CustomerService
-from tests.payloads.order_payloads import order_create_payload
+from tests.payloads.order_payloads import order_create_payload, order_update_payload
 from tests.utils.constants import StatusCodes
 from tests.utils.logger import get_logger
 
@@ -81,7 +81,25 @@ class OrderFactory:
 
     def cleanup(self, order_id: int) -> None:
         """DELETE order created by this factory."""
-        response = self._order_service.delete_order(order_id)
+        get_response = self._order_service.get_by_id(order_id)
+        get_data = get_response.json()
+        status = get_data["status"]
+
+        if status in ("placed", "confirmed"):
+            response = self._order_service.update(order_id, {"status": "cancelled"})
+        elif status == "preparing":
+            self._order_service.update(order_id, {"status": "ready"})
+            self._order_service.update(order_id, {"status": "picked_up"})
+            response = self._order_service.update(order_id, {"status": "delivered"})
+        elif status == "ready":
+            self._order_service.update(order_id, {"status": "picked_up"})
+            response = self._order_service.update(order_id, {"status": "delivered"})
+        elif status == "picked_up":
+            response = self._order_service.update(order_id, {"status": "delivered"})
+        elif status in ("delivered", "cancelled"):
+            logger.info("Order id=%s already in terminal status: %s",order_id,status)
+
+            return
 
         if response.status_code == StatusCodes.OK:
             logger.info("Factory cleaned up order id=%s", order_id)

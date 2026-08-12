@@ -54,7 +54,13 @@ class AddressFactory:
 
 
     def cleanup(self, address_id) -> None:
-        """Clean up address created by this factory"""
+        """Delete the address created by the factory.
+
+        Note:
+            The API may return HTTP 500 when the address is still referenced
+            by another resource. In that case, the cleanup failure is logged
+            as a warning."""
+        
         response = self._address_service.delete_address(address_id)
         if response.status_code == StatusCodes.OK:
             logger.info("Factory cleaned up address id=%s", address_id)

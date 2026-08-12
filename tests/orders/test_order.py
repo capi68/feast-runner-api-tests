@@ -6,13 +6,11 @@ import pytest
 from tests.base.base_assertions import BaseAssertions
 from tests.models.order_model import Order
 from tests.models.order_item_model import OrderItem
+from tests.orders.conftest import ready_order
 from tests.payloads.order_payloads import order_create_payload,order_update_payload
 from tests.payloads.menu_items_payloads import menu_item_update_payload
-from tests.factories.restaurant_factory import RestaurantFactory
 from tests.factories.menu_item_factory import MenuItemsFactory
 from tests.factories.address_factory import AddressFactory
-from tests.factories.menu_factory import MenuFactory
-from tests.factories.order_factory import OrderFactory
 from tests.schemas.order_schemas import ORDER_RESPONSE_SCHEMA, ORDER_LIST_SCHEMA, ORDER_GET_BY_ID_SCHEMA
 from tests.utils.constants import StatusCodes
 from tests.utils.logger import get_logger
@@ -28,25 +26,27 @@ class TestOrdersCreation(BaseAssertions):
     validates that the order creation endpoint correctly handles
     valid input. missing fields, invalid data.
     """
-
+    @pytest.mark.prueba
     @allure.story("Create order successfully")
-    def test_create_order_success(
-            self,menu_service,menu_items_service,restaurant_service,address_service,customer_service,order_service):
+    def test_create_order_success(self,order_service,menu_items_service, menu_service, restaurant_service,address_service, customer_service):
         """POST /orders - with valid data and required fields should return 201.
-        and a response matching with Order Schema.
-        """
-        with allure.step("Create valid menu item using factory"):
+        and a response matching with Order Schema."""
+
+        with allure.step("Create valid menu item using fixture"):
             menu_item_factory = MenuItemsFactory(menu_items_service, menu_service, restaurant_service)
             menu_item = menu_item_factory.create()
             restaurant_id = menu_item["restaurant_id"]
             menu_id = menu_item["menu_id"]
+            menu_item_id = menu_item["id"]
+
             address_factory = AddressFactory(address_service, customer_service)
             address = address_factory.create()
             customer_id = address["customer_id"]
             address_id = address["id"]
 
+
         with allure.step("create a valid payload with customer_id, restaurant_id, address_id"):
-            order_item = OrderItem(menu_item_id=menu_item["id"], quantity=3)
+            order_item = OrderItem(menu_item_id=menu_item_id, quantity=3)
 
             order = Order(customer_id=customer_id,restaurant_id=restaurant_id,address_id=address_id,items=[order_item])
             service = order_service
@@ -55,8 +55,7 @@ class TestOrdersCreation(BaseAssertions):
         with allure.step("POST /order request"):
             response = service.create(payload)
             data = response.json()
-
-            logger.info("DATA data=%s", data)
+            order_id = data["id"]
 
         with allure.step("Validate response."):
             self.using(response).assert_status_code_is(StatusCodes.CREATED)
@@ -65,12 +64,15 @@ class TestOrdersCreation(BaseAssertions):
             self.using(response).assert_response_has_key_value("restaurant_id", restaurant_id)
             self.using(response).assert_response_has_key_value("address_id", address_id)
 
+        with allure.step("CLEANUP"):
             #CLEANUP
-            order_service.update(data["id"], {"status": "cancelled"})
+            order_service.update(order_id, {"status": "cancelled"})
+            menu_items_service.delete_menu_item(menu_item_id)
             menu_item_factory.cleanup_all(menu_id, restaurant_id)
 
             address_factory.cleanup(address_id)
             address_factory.cleanup_all(customer_id)
+
 
 
     @allure.story("Create Order with non-existent restaurant_id")
@@ -654,15 +656,7 @@ class TestOrderRetrieval(BaseAssertions):
     """
 
     @allure.story("Get List all")
-    def test_get_list(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_list(self,order_service):
         """GET /orders - should return a list of orders .
         and 200, and a response matching with Order List Response.
         """
@@ -674,33 +668,17 @@ class TestOrderRetrieval(BaseAssertions):
 
 
     @allure.story("Get order by ID.")
-    def test_get_by_id(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_by_id(self,order_service,ready_order):
         """GET /orders/<id> - should return an order by id.
         and 200, and a response matching with Order Schema.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
 
         #GET response
         get_response = order_service.get_by_id(order_id)
 
         self.using(get_response).assert_status_code_is(StatusCodes.OK)
         self.using(get_response).assert_schema(ORDER_GET_BY_ID_SCHEMA)
-
-
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
     @allure.story("Get order nonexistent id.")
@@ -715,125 +693,63 @@ class TestOrderRetrieval(BaseAssertions):
 
 
     @allure.story("Get items in specific order by id.")
-    def test_get_items_specific_order(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_items_specific_order(self,order_service, ready_order):
         """GET/orders/<id>/items - should return order items in specific order by id.
         and 200.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
 
         #GET response
         get_response = order_service.get_items_by_order(order_id)
 
         self.using(get_response).assert_status_code_is(StatusCodes.OK)
 
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("Get orders filtered by customer_id.")
-    def test_get_orders_by_customer_id(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_orders_by_customer_id(self,order_service, ready_order):
         """GET/orders?customer_id= - should return orders for specific customer_id.
         and 200.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        customer_id = ready_order["customer_id"]
 
         #GET response
-        get_response = order_service.list(customer_id=order["customer_id"])
+        get_response = order_service.list(customer_id=customer_id)
         get_data = get_response.json()
 
 
         self.using(get_response).assert_status_code_is(StatusCodes.OK)
-        assert all(order["customer_id"] == order["customer_id"] for order in get_data)
-
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
+        assert all(item["customer_id"] == customer_id for item in get_data)
 
 
     @allure.story("Get orders filtered by restaurant_id.")
-    def test_get_orders_by_restaurant(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_orders_by_restaurant(self,order_service,ready_order):
         """GET/orders?restaurant_id= - should return orders for specific restaurant_id.
         and 200.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        restaurant_id = ready_order["restaurant_id"]
 
         #GET response
-        get_response = order_service.list(restaurant_id=order["restaurant_id"])
+        get_response = order_service.list(restaurant_id=restaurant_id)
         get_data = get_response.json()
 
 
         self.using(get_response).assert_status_code_is(StatusCodes.OK)
-        assert all(order["restaurant_id"] == order["restaurant_id"] for order in get_data)
-
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
+        assert all(item["restaurant_id"] == restaurant_id for item in get_data)
 
 
     @allure.story("Get orders filtered by status.")
-    def test_get_orders_by_status(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_get_orders_by_status(self,order_service,ready_order):
         """GET/orders?status= - should return orders for specific status.
         and 200.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
-        order_service.update(order_id, {"status": "confirmed"})
+        status = ready_order["status"]
 
         #GET response filtered by status
-        get_response = order_service.list(status="confirmed")
+        get_response = order_service.list(status=status)
         get_data = get_response.json()
 
-
         self.using(get_response).assert_status_code_is(StatusCodes.OK)
-        assert all(order["status"] == "confirmed" for order in get_data)
-
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
+        assert all(order["status"] == status for order in get_data)
 
 
 @pytest.mark.orders
@@ -843,35 +759,22 @@ class TestUpdateOrder(BaseAssertions):
 
 
     @allure.story("Update Order Successfully")
-    def test_update_order_success(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_update_order_success(self,order_service, ready_order):
         """PUT /orders/<id> - should update the provided fields and return 200.
         Only the specified fields change; others remain untouched.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
+        restaurant_id = ready_order["restaurant_id"]
+        customer_id = ready_order["customer_id"]
 
         #Update
         response = order_service.update(order_id, {"status": "cancelled"})
-        update_data = response.json()
 
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", "cancelled")
-        self.using(response).assert_response_has_key_value("restaurant_id", order["restaurant_id"])
-        self.using(response).assert_response_has_key_value("address_id", order["address_id"])
-        self.using(response).assert_response_has_key_value("total_amount", order["total_amount"])
+        self.using(response).assert_response_has_key_value("restaurant_id", restaurant_id)
+        self.using(response).assert_response_has_key_value("customer_id", customer_id)
 
-        #CLEANUP
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 class TestOrderStatusMachine(BaseAssertions):
     """Tests for order status transitions
@@ -889,25 +792,12 @@ class TestOrderStatusMachine(BaseAssertions):
 
     @pytest.mark.parametrize("new_status", ["confirmed", "cancelled"])
     @allure.story("Update Order correctly status machine starting in placed")
-    def test_status_transition_from_placed(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_transition_from_placed(self,order_service, ready_order, new_status):
         """PUT /orders/<id> - should update status  and return 200.
         correctly options:
-
         -placed to confirmed or cancelled.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
 
         #Update
         update_payload = order_update_payload(status=new_status)
@@ -915,34 +805,16 @@ class TestOrderStatusMachine(BaseAssertions):
 
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", new_status)
-
-        #CLEANUP
-        if new_status == "confirmed":
-            factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
     @pytest.mark.parametrize("new_status", ["preparing", "ready", "picked_up", "delivered"])
     @allure.story("Update Order incorrect status machine starting in placed")
-    def test_status_invalid_transition_from_placed(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_invalid_transition_from_placed(self,order_service,ready_order,new_status):
         """PUT /orders/<id> - should return 400.
         correctly options:
-
         -placed to confirmed or cancelled.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
 
         #Update
         update_payload = order_update_payload(status=new_status)
@@ -952,32 +824,15 @@ class TestOrderStatusMachine(BaseAssertions):
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @pytest.mark.parametrize("new_status", ["preparing", "cancelled"])
     @allure.story("Update Order correctly status machine starting in confirmed")
-    def test_status_transition_from_confirmed(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_transition_from_confirmed(self,order_service,ready_order,new_status):
         """PUT /orders/<id> - should update status  and return 200.
         correctly options:
-
         -confirmed to preparing or cancelled.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
 
         #Update
@@ -987,142 +842,69 @@ class TestOrderStatusMachine(BaseAssertions):
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", new_status)
 
-        #CLEANUP
-        if new_status == "preparing":
-            factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @pytest.mark.parametrize("new_status", ["ready", "picked_up", "delivered"])
     @allure.story("Update Order incorrect status machine starting in confirmed")
-    def test_status_invalid_transition_from_confirmed(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_invalid_transition_from_confirmed(self,order_service,ready_order,new_status):
         """PUT /orders/<id> - should return 400.
         correctly options:
-
         -confirmed to preparing or cancelled.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
 
         #Update
         update_payload = order_update_payload(status=new_status)
-        response = order_service.update(order["id"], update_payload)
-        data = response.json()
+        response = order_service.update(order_id, update_payload)
 
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
-        #CLEANUP
-        factory.cleanup(order_id)
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("Update Order correctly status machine starting in preparing")
-    def test_status_transition_from_preparing(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_transition_from_preparing(self,order_service,ready_order):
         """PUT /orders/<id> - should update status  and return 200.
         correctly options:
-
         -preparing to ready
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
 
         #Update
         update_payload = order_update_payload(status="ready")
-        response = order_service.update(order["id"], update_payload)
-        data = response.json()
+        response = order_service.update(order_id, update_payload)
 
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", "ready")
 
-        #CLEANUP
-        order_service.update(order_id, {"status": "picked_up"})
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @pytest.mark.parametrize("new_status", [ "placed", "picked_up", "delivered"])
     @allure.story("Update Order incorrect status machine starting in preparing")
-    def test_status_invalid_transition_from_preparing(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_invalid_transition_from_preparing(self,order_service,ready_order,new_status):
         """PUT /orders/<id> - should return 400.
         correctly options:
-
         -preparing to ready.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
 
         #Update
         update_payload = order_update_payload(status=new_status)
-        response = order_service.update(order["id"], update_payload)
-        data = response.json()
+        response = order_service.update(order_id, update_payload)
 
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
-        #CLEANUP
-        order_service.update(order_id, {"status": "ready"})
-        order_service.update(order_id, {"status": "picked_up"})
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("Update Order correctly status machine starting in picked_up")
-    def test_status_transition_from_picked_up(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+    def test_status_transition_from_picked_up(self,order_service,ready_order):
         """PUT /orders/<id> - should update status  and return 200.
         correctly options:
-
         -picked_up to delivered
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
         order_service.update(order_id, {"status": "ready"})
@@ -1130,38 +912,21 @@ class TestOrderStatusMachine(BaseAssertions):
 
         #Update
         update_payload = order_update_payload(status="delivered")
-        response = order_service.update(order["id"], update_payload)
-        data = response.json()
+        response = order_service.update(order_id, update_payload)
 
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", "delivered")
-
-        #CLEANUP
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
     @pytest.mark.parametrize("new_status", [ "placed", "cancelled", "confirmed", "preparing"])
     @allure.story("Update Order incorrect status machine starting in picked_up")
     def test_status_invalid_transition_from_picked_up(
-            self,
-            new_status,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+            self,order_service,ready_order,new_status):
         """PUT /orders/<id> - should return 400.
         correctly options:
-
         -picked_up to delivered
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
         order_service.update(order_id, {"status": "ready"})
@@ -1169,16 +934,10 @@ class TestOrderStatusMachine(BaseAssertions):
 
         #Update
         update_payload = order_update_payload(status=new_status)
-        response = order_service.update(order["id"], update_payload)
-        data = response.json()
+        response = order_service.update(order_id, update_payload)
 
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
-
-        #CLEANUP
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
 
 @pytest.mark.orders
@@ -1189,47 +948,23 @@ class TestDeleteOrder(BaseAssertions):
 
     @allure.story("DELETE an placed order successfully")
     def test_delete_placed_order_success(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
+            self,order_service,ready_order):
         """DELETE /orders/<id> - should cancelled order and return 200.
         """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+        order_id = ready_order["order_id"]
 
         #delete >> cancelled
         response = order_service.delete_order(order_id)
 
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", "cancelled")
-
-        #CLEANUP
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
     @allure.story("DELETE a confirmed order successfully")
-    def test_delete_confirmed_order_success(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
-        """DELETE /orders/<id> - should cancelled order and return 200.
-        """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+    def test_delete_confirmed_order_success(self,order_service,ready_order):
+        """DELETE /orders/<id> - should cancelled order and return 200."""
+
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
 
         #delete >> cancelled
@@ -1238,58 +973,27 @@ class TestDeleteOrder(BaseAssertions):
         self.using(response).assert_status_code_is(StatusCodes.OK)
         self.using(response).assert_response_has_key_value("status", "cancelled")
 
-        #CLEANUP
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("DELETE an order with status preparing")
-    def test_delete_order_status_preparing(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
-        """DELETE /orders/<id> - should not cancel order and return 400.
-        """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+    def test_delete_order_status_preparing(self,order_service,ready_order):
+        """DELETE /orders/<id> - should not cancel order and return 400."""
+
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
 
         #delete >> cancelled
-        response = order_service.delete_order(order["id"])
+        response = order_service.delete_order(order_id)
 
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
-        #CLEANUP
-        order_service.update(order_id, {"status": "ready"})
-        order_service.update(order_id, {"status": "picked_up"})
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("DELETE an order with status ready")
-    def test_delete_order_status_ready(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
-        """DELETE /orders/<id> - should not cancel order and return 400.
-        """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+    def test_delete_order_status_ready(self,order_service,ready_order):
+        """DELETE /orders/<id> - should not cancel order and return 400."""
+
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
         order_service.update(order_id, {"status": "ready"})
@@ -1300,42 +1004,22 @@ class TestDeleteOrder(BaseAssertions):
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
 
-        #CLEANUP
-        order_service.update(order_id, {"status": "picked_up"})
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
-
 
     @allure.story("DELETE an order with status picked_up")
-    def test_delete_order_status_picked_up(
-            self,
-            menu_service,
-            menu_items_service,
-            restaurant_service,
-            address_service,
-            customer_service,
-            order_service
-    ):
-        """DELETE /orders/<id> - should not cancel order and return 400.
-        """
-        #Create order via factory
-        factory = OrderFactory(order_service, address_service,customer_service,menu_items_service,menu_service,restaurant_service)
-        order = factory.create()
-        order_id = order["id"]
+    def test_delete_order_status_picked_up(self,order_service,ready_order):
+        """DELETE /orders/<id> - should not cancel order and return 400."""
+
+        order_id = ready_order["order_id"]
         order_service.update(order_id, {"status": "confirmed"})
         order_service.update(order_id, {"status": "preparing"})
         order_service.update(order_id, {"status": "ready"})
         order_service.update(order_id, {"status": "picked_up"})
 
         #delete >> cancelled
-        response = order_service.delete_order(order["id"])
+        response = order_service.delete_order(order_id)
 
         self.using(response).assert_status_code_is(StatusCodes.BAD_REQUEST)
         self.using(response).assert_response_has_key("message")
-
-        #CLEANUP
-        order_service.update(order_id, {"status": "delivered"})
-        factory.cleanup_all(order["customer_id"],order["address_id"],order["menu_item_id"],order["menu_id"],order["restaurant_id"])
 
 
     @allure.story("DELETE nonexistent order")

@@ -37,8 +37,8 @@ class MenuItemsFactory:
         Returns:
             dict: The created menu_item response from the API.
         """
-        restaurant_id = None
         #Create menu dependency if not provided
+        restaurant_id = None
         if menu_id is None:
             menu = self._menu_factory.create()
             menu_id = menu["id"]
@@ -60,7 +60,13 @@ class MenuItemsFactory:
         return data
 
     def cleanup(self, menu_item_id: int) -> None:
-        """Delete menu item created by the factory."""
+        """Delete the menu item created by the factory.
+
+        Note:
+            The API may return HTTP 500 when the menu item is still referenced
+            by another resource, such as an order item. In that case, the
+            cleanup failure is logged as a warning."""
+
         response = self._menu_items_service.delete_menu_item(menu_item_id)
         if response.status_code == StatusCodes.OK:
             logger.info("Factory cleaned up menu item id=%s", menu_item_id)

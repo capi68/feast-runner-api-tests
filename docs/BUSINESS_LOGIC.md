@@ -1,6 +1,6 @@
 # 📋 Business Logic — FeastRunner API
 
-## 🔐 Authentication
+##  Authentication
 
 - Three entity types can authenticate: Restaurant, Customer, Courier
 - JWT tokens are valid for 24 hours
@@ -10,7 +10,7 @@
 
 ---
 
-## 🍕 Restaurants
+##  Restaurants
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -42,7 +42,7 @@ closed → (nothing) ❌ terminal
 
 ---
 
-## 📋 Menus
+##  Menus
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -70,7 +70,7 @@ archived → (nothing) ❌ terminal
 
 ---
 
-## 🍔 Menu Items
+##  Menu Items
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -91,7 +91,7 @@ archived → (nothing) ❌ terminal
 
 ---
 
-## 👤 Customers
+##  Customers
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -110,7 +110,7 @@ archived → (nothing) ❌ terminal
 
 ---
 
-## 📍 Addresses
+##  Addresses
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -131,7 +131,7 @@ archived → (nothing) ❌ terminal
 
 ---
 
-## 🚴 Couriers
+##  Couriers
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -153,7 +153,7 @@ archived → (nothing) ❌ terminal
 
 ---
 
-## 📦 Orders
+##  Orders
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -195,7 +195,7 @@ cancelled → (nothing) ❌ terminal
 
 ---
 
-## 🛵 Deliveries
+##  Deliveries
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -236,7 +236,7 @@ failed → (nothing) ❌ terminal
 
 ---
 
-## ⭐ Ratings
+##  Ratings
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
